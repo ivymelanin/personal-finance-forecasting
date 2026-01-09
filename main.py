@@ -12,7 +12,7 @@ def load_transactions(file):
         df.columns = [col.strip() for col in df.columns]
         df["Amount"] = df["Amount"].str.replace(",", "").astype(float)
         df["Date"] = pd.to_datetime(df["Date"], format="%d %b %Y")
-        
+        st.write(df)
         return df
     except Exception as e:
         st.error(f"Error processing file: {str(e)}")
