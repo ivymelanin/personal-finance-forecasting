@@ -30,7 +30,7 @@ def categorize_transactions(df):
         
         lowered_keywords = [keyword.lower().strip() for keyword in keywords ]
 
-        for idx, row in df.itrrows():
+        for idx, row in df.iterrows():
             details = row["Details"].lower().strip()
             if details in lowered_keywords:
                df.at[idx, "Category"] = category 
@@ -87,7 +87,7 @@ def main():
                     st.session_state.debits_df[["Date", "Details", "Amount", "Category"]],
                     column_config={
                         "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
-                        "Amount": st.column_config.NumberColumn("Amount", format="%.2f AED"),
+                        "Amount": st.column_config.NumberColumn("Amount", format="R %.2f"),
                         "Category": st.column_config.SelectboxColumn(
                             "Category",
                             options=list(st.session_state.categories.keys())
@@ -118,7 +118,7 @@ def main():
                 st.dataframe(
                     category_totals,
                     column_config={
-                        "Amount": st.column_config.NumberColumn("Amount", format="%.2f AED")
+                        "Amount": st.column_config.NumberColumn("Amount", format="R %.2f")
                     },
                     use_container_width=True,
                     hide_index=True
