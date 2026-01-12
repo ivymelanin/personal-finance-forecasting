@@ -87,7 +87,7 @@ def main():
                     st.session_state.debits_df[["Date", "Details", "Amount", "Category"]],
                     column_config={
                         "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
-                        "Amount": st.column_config.NumberColumn("Amount", format="%.2f AED"),
+                        "Amount": st.column_config.NumberColumn("Amount", format="R %.2f"),
                         "Category": st.column_config.SelectboxColumn(
                             "Category",
                             options=list(st.session_state.categories.keys())
@@ -118,7 +118,7 @@ def main():
                 st.dataframe(
                     category_totals,
                     column_config={
-                        "Amount": st.column_config.NumberColumn("Amount", format="%.2f AED")
+                        "Amount": st.column_config.NumberColumn("Amount", format="R %.2f")
                     },
                     use_container_width=True,
                     hide_index=True
@@ -134,8 +134,8 @@ def main():
 
             with tab2: 
                 st.subheader("Income Summary")
-                total_income = credits_df["Amount"].sum()
-                st.metric("Total Income", f"{total_income:,.2f} AED")
+                total_payments = credits_df["Amount"].sum()
+                st.metric("Total Payments", f"R {total_payments:,.2f}")
                 st.write(credits_df)
 
 main()
