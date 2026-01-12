@@ -31,9 +31,11 @@ A **Streamlit-based personal finance dashboard** that allows users to upload ban
 
 ## 📂 Project Structure
 
-
-
----
+.
+├── main.py # Streamlit application
+├── categories.json # Saved category keywords (auto-generated)
+├── README.md # Project documentation
+└── requirements.txt # Python dependencies
 
 ## 📑 CSV File Format Requirements
 
@@ -44,8 +46,6 @@ Your uploaded CSV must contain the following columns:
 - `Amount` (numeric, commas allowed)
 - `Debit/Credit` (values: `Debit` or `Credit`)
 
-Example:
----
 
 ## ⚙️ Installation
 
