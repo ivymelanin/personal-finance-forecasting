@@ -133,6 +133,9 @@ def main():
                 st.plotly_chart(fig, use_container_width=True)
 
             with tab2: 
+                st.subheader("Income Summary")
+                total_income = credits_df["Amount"].sum()
+                st.metric("Total Income", f"{total_income:,.2f} AED")
                 st.write(credits_df)
 
 main()
