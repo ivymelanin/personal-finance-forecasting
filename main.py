@@ -134,8 +134,8 @@ def main():
 
             with tab2: 
                 st.subheader("Income Summary")
-                total_income = credits_df["Amount"].sum()
-                st.metric("Total Income", f"{total_income}")
+                total_payments = credits_df["Amount"].sum()
+                st.metric("Total Payments", f"R {total_payments:,.2f}")
                 st.write(credits_df)
 
 main()
