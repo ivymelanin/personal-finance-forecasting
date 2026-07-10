@@ -39,12 +39,39 @@ def categorize_transactions(df):
             
 def load_transactions(file):
     try: 
-        df = pd.read_csv(file)
+        # 1. Read lines to find the maximum number of columns in the file
+        file.seek(0)  # Reset file pointer to the beginning
+        lines = [line.decode("utf-8").strip().split(",") for line in file.readlines()]
+        file.seek(0)  # Reset pointer again for pandas
+        
+        if not lines:
+            st.error("The uploaded file is empty.")
+            return None
+            
+        max_cols = max(len(row) for row in lines)
+        
+        # 2. Get standard headers from the first row and pad any extra columns
+        base_headers = [col.strip() for col in lines[0]]
+        
+        # If a row has more columns than headers, create dummy headers for them
+        if max_cols > len(base_headers):
+            extra_count = max_cols - len(base_headers)
+            extended_headers = base_headers + [f"Extra_Column_{i+1}" for i in range(extra_count)]
+        else:
+            extended_headers = base_headers
+
+        # 3. Read the CSV using our dynamically extended headers
+        df = pd.read_csv(file, names=extended_headers, skiprows=1)
+        
+        # Clean up core column text spacing
         df.columns = [col.strip() for col in df.columns]
-        df["Amount"] = df["Amount"].str.replace(",", "").astype(float)
+        
+        # 4. Standardize Data Types
+        df["Amount"] = df["Amount"].astype(str).str.replace(",", "").astype(float)
         df["Date"] = pd.to_datetime(df["Date"], format="%d %b %Y")
         
         return categorize_transactions(df)
+        
     except Exception as e:
         st.error(f"Error processing file: {str(e)}")
         return None
