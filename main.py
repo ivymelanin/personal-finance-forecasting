@@ -41,44 +41,93 @@ def categorize_transactions(df):
             
 def load_transactions(file):
     try: 
-        # 1. Decode the uploaded file data into a text string
+        # 1. Read and decode the raw text data safely
         file.seek(0)
         file_contents = file.read().decode("utf-8")
         
-        # 2. Parse using Python's built-in csv reader
         f = io.StringIO(file_contents)
         reader = csv.reader(f)
         
-        # Filter out completely empty rows and strip extra whitespace
-        lines = [[col.strip() for col in row] for row in reader if row and any(cell.strip() for cell in row)]
+        # Clean out completely empty rows and trailing spaces
+        lines = [[cell.strip() for cell in row] for row in reader if row and any(cell.strip() for cell in row)]
         
         if not lines:
-            st.error("The uploaded file is empty or contains no valid data.")
+            st.error("The uploaded file is empty.")
             return None
             
-        # 3. Find where the actual headers start
-        # If your CSV has bank description text at the top, we skip until we find "Date" or "Amount"
+        # 2. Find the true header row dynamically
         header_idx = 0
         for i, row in enumerate(lines):
             row_joined = "".join(row).lower()
-            if "date" in row_joined or "amount" in row_joined:
+            # Look for indicators of structural bank headers
+            if any(k in row_joined for k in ["date", "amount", "detail", "desc", "balance"]):
                 header_idx = i
                 break
-        
+                
         headers = lines[header_idx]
         data_rows = lines[header_idx + 1:]
         
-        # 4. Rebuild the DataFrame safely using matched columns
+        # Pad headers if any row has unexpected trailing comma data
+        if data_rows:
+            max_cols = max(len(row) for row in data_rows)
+            if max_cols > len(headers):
+                headers = headers + [f"Extra_{x}" for x in range(max_cols - len(headers))]
+                
+        # 3. Create the initial dataframe
         df = pd.DataFrame(data_rows, columns=headers)
         
-        # 5. Standardize Data Types
-        df["Amount"] = df["Amount"].astype(str).str.replace(",", "").astype(float)
-        df["Date"] = pd.to_datetime(df["Date"], format="%d %b %Y")
+        # 4. DYNAMIC COLUMN MAPPING (The Secret Sauce)
+        # This scans the actual data to determine what each column represents
+        date_col, details_col, amount_col, type_col = None, None, None, None
+        
+        for col in df.columns:
+            col_lower = str(col).lower()
+            
+            # Map Date Column
+            if "date" in col_lower and not date_col:
+                date_col = col
+            # Map Amount Column
+            elif any(k in col_lower for k in ["amount", "value", "rand", "sum"]) and not amount_col:
+                amount_col = col
+            # Map Debit/Credit column flags
+            elif any(k in col_lower for k in ["type", "debit/credit", "d/c", "cr/dr"]) and not type_col:
+                type_col = col
+            # Map Description/Details column
+            elif any(k in col_lower for k in ["detail", "desc", "narrative", "statement"]):
+                details_col = col
+
+        # Fallback Strategy: If bank has weird names, guess by column position
+        if not date_col and len(df.columns) > 0: date_col = df.columns[0]
+        if not details_col and len(df.columns) > 1: details_col = df.columns[1]
+        if not amount_col and len(df.columns) > 2: amount_col = df.columns[2]
+        if not type_col and len(df.columns) > 3: type_col = df.columns[3]
+
+        # 5. Normalize structural values into what the rest of your script expects
+        df = df.rename(columns={
+            date_col: "Date",
+            details_col: "Details",
+            amount_col: "Amount"
+        })
+        
+        if type_col:
+            df = df.rename(columns={type_col: "Debit/Credit"})
+        else:
+            # If the CSV doesn't track debit/credit explicitly, assume negative numbers are Debits
+            df["Amount_Float"] = df["Amount"].astype(str).str.replace(",", "").str.replace("R", "").str.strip().astype(float)
+            df["Debit/Credit"] = df["Amount_Float"].apply(lambda x: "Debit" if x < 0 else "Credit")
+            df["Amount"] = df["Amount_Float"].abs()
+
+        # 6. Safe conversion of core metrics
+        df["Amount"] = df["Amount"].astype(str).str.replace(",", "").str.replace("R", "").str.strip().astype(float)
+        
+        # Flexible date parser that naturally handles different formats (DD/MM/YYYY, DD-MMM-YYYY, etc)
+        df["Date"] = pd.to_datetime(df["Date"], errors='coerce')
+        df = df.dropna(subset=["Date", "Amount"]) # Remove row metadata padding errors
         
         return categorize_transactions(df)
         
     except Exception as e:
-        st.error(f"Error processing file: {str(e)}")
+        st.error(f"Error processing file structurally: {str(e)}")
         return None
     
 def add_keyword_to_category(category, keyword):
