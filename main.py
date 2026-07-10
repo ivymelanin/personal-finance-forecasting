@@ -45,23 +45,33 @@ def load_transactions(file):
         file.seek(0)
         file_contents = file.read().decode("utf-8")
         
-        # 2. Use Python's built-in csv reader which handles row commas automatically
+        # 2. Parse using Python's built-in csv reader
         f = io.StringIO(file_contents)
         reader = csv.reader(f)
-        lines = list(reader)
+        
+        # Filter out completely empty rows and strip extra whitespace
+        lines = [[col.strip() for col in row] for row in reader if row and any(cell.strip() for cell in row)]
         
         if not lines:
-            st.error("The uploaded file is empty.")
+            st.error("The uploaded file is empty or contains no valid data.")
             return None
             
-        # Extract headers from the very first row and clean up trailing spaces
-        headers = [col.strip() for col in lines[0]]
-        data_rows = lines[1:]
+        # 3. Find where the actual headers start
+        # If your CSV has bank description text at the top, we skip until we find "Date" or "Amount"
+        header_idx = 0
+        for i, row in enumerate(lines):
+            row_joined = "".join(row).lower()
+            if "date" in row_joined or "amount" in row_joined:
+                header_idx = i
+                break
         
-        # 3. Rebuild the DataFrame safely
+        headers = lines[header_idx]
+        data_rows = lines[header_idx + 1:]
+        
+        # 4. Rebuild the DataFrame safely using matched columns
         df = pd.DataFrame(data_rows, columns=headers)
         
-        # 4. Standardize Data Types
+        # 5. Standardize Data Types
         df["Amount"] = df["Amount"].astype(str).str.replace(",", "").astype(float)
         df["Date"] = pd.to_datetime(df["Date"], format="%d %b %Y")
         
