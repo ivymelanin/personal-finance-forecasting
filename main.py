@@ -50,7 +50,7 @@ def load_transactions(file):
         return None
     
 def add_keyword_to_category(category, keyword):
-    keyword in keyword.strip()
+    keyword = keyword.strip()
     if keyword and keyword not in st.session_state.categories[category]:
         st.session_state.categories[category].append(keyword)
         save_categories()
