@@ -3,6 +3,8 @@ import pandas as pd
 import plotly.express as px
 import json 
 import os
+import csv
+import io
 
 st.set_page_config(page_title="Finance Forecasting", page_icon="", layout="wide")
 
@@ -39,32 +41,25 @@ def categorize_transactions(df):
             
 def load_transactions(file):
     try: 
-        # 1. Read lines to find the maximum number of columns in the file
-        file.seek(0)  # Reset file pointer to the beginning
-        lines = [line.decode("utf-8").strip().split(",") for line in file.readlines()]
-        file.seek(0)  # Reset pointer again for pandas
+        # 1. Decode the uploaded file data into a text string
+        file.seek(0)
+        file_contents = file.read().decode("utf-8")
+        
+        # 2. Use Python's built-in csv reader which handles row commas automatically
+        f = io.StringIO(file_contents)
+        reader = csv.reader(f)
+        lines = list(reader)
         
         if not lines:
             st.error("The uploaded file is empty.")
             return None
             
-        max_cols = max(len(row) for row in lines)
+        # Extract headers from the very first row and clean up trailing spaces
+        headers = [col.strip() for col in lines[0]]
+        data_rows = lines[1:]
         
-        # 2. Get standard headers from the first row and pad any extra columns
-        base_headers = [col.strip() for col in lines[0]]
-        
-        # If a row has more columns than headers, create dummy headers for them
-        if max_cols > len(base_headers):
-            extra_count = max_cols - len(base_headers)
-            extended_headers = base_headers + [f"Extra_Column_{i+1}" for i in range(extra_count)]
-        else:
-            extended_headers = base_headers
-
-        # 3. Read the CSV using our dynamically extended headers
-        df = pd.read_csv(file, names=extended_headers, skiprows=1)
-        
-        # Clean up core column text spacing
-        df.columns = [col.strip() for col in df.columns]
+        # 3. Rebuild the DataFrame safely
+        df = pd.DataFrame(data_rows, columns=headers)
         
         # 4. Standardize Data Types
         df["Amount"] = df["Amount"].astype(str).str.replace(",", "").astype(float)
