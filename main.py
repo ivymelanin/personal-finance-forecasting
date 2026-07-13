@@ -72,7 +72,18 @@ def load_transactions(file):
         headers = lines[header_idx]
         data = lines[header_idx + 1:]
 
-        df = pd.DataFrame(data, columns=headers)
+        fixed_rows = []
+
+        for row in data:
+            if len(row) > len(headers):
+        # Merge any extra columns into the Description column
+                row = row[:3] + [",".join(row[3:])]
+            elif len(row) < len(headers):
+                row += [""] * (len(headers) - len(row))
+
+            fixed_rows.append(row)
+
+        df = pd.DataFrame(fixed_rows, columns=headers)
 
         df = df.rename(columns={
             "Date": "Date",
