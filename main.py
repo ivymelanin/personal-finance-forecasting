@@ -24,18 +24,20 @@ def save_categories():
         json.dump(st.session_state.categories, f)
     
 def categorize_transactions(df):
-    df["Category"] = "Uncategorized" 
+    categories = st.session_state.categories
 
-    for category, keywords in st.session_state.categories.items():
-        if category == "Uncategorized" or not keywords:
-            continue
-        
-        lowered_keywords = [keyword.lower().strip() for keyword in keywords ]
+    df["Category"] = "Other"
 
-        for idx, row in df.iterrows():
-            details = row["Details"].lower().strip()
-            if details in lowered_keywords:
-               df.at[idx, "Category"] = category 
+    for index, row in df.iterrows():
+
+        details = str(row["Details"]).upper()
+
+        for category, keywords in categories.items():
+
+            if any(keyword.upper() in details for keyword in keywords):
+
+                df.at[index, "Category"] = category
+                break
 
     return df
             
