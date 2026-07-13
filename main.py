@@ -41,33 +41,129 @@ def categorize_transactions(df):
             
 def load_transactions(file):
     try:
-        import io, csv
         file.seek(0)
-        text = file.read().decode("utf-8-sig")
 
-        reader = csv.reader(io.StringIO(text))
-        lines = [
-            [c.strip() for c in row]
-            for row in reader
-            if row and any(c.strip() for c in row)
-        ]
+        # Read CSV while allowing inconsistent rows
+        df = pd.read_csv(
+            file,
+            skip_blank_lines=True,
+            engine="python",
+            on_bad_lines="skip"
+        )
 
-        header_idx = None
-        for i, row in enumerate(lines):
-            cols = [c.lower() for c in row]
-            if (
-                len(cols) >= 4
-                and cols[0] == "date"
-                and "amount" in cols
-                and "balance" in cols
-                and "description" in cols
-            ):
-                header_idx = i
-                break
+        # Find the actual transaction header
+        if "Date" not in df.columns:
+            file.seek(0)
 
-        if header_idx is None:
-            st.error("Could not locate the transaction table.")
-            return None
+            lines = file.read().decode("utf-8-sig").splitlines()
+
+            header_line = None
+
+            for i, line in enumerate(lines):
+                cols = [c.strip().lower() for c in line.split(",")]
+
+                if (
+                    "date" in cols
+                    and "amount" in cols
+                    and "balance" in cols
+                    and (
+                        "description" in cols
+                        or "details" in cols
+                    )
+                ):
+                    header_line = i
+                    break
+
+            if header_line is None:
+                st.error("Could not locate transaction table.")
+                return None
+
+            file.seek(0)
+
+            df = pd.read_csv(
+                file,
+                skiprows=header_line,
+                engine="python"
+            )
+
+        # Rename columns
+        rename_map = {}
+
+        for col in df.columns:
+
+            lower = col.lower()
+
+            if lower == "date":
+                rename_map[col] = "Date"
+
+            elif lower == "amount":
+                rename_map[col] = "Amount"
+
+            elif lower == "balance":
+                rename_map[col] = "Balance"
+
+            elif lower in ["description", "details"]:
+                rename_map[col] = "Details"
+
+        df = df.rename(columns=rename_map)
+
+        required = ["Date", "Amount", "Details"]
+
+        for col in required:
+            if col not in df.columns:
+                st.error(f"Missing required column: {col}")
+                return None
+
+        # Clean amount
+        df["Amount"] = (
+            df["Amount"]
+            .astype(str)
+            .str.replace("R", "", regex=False)
+            .str.replace(",", "", regex=False)
+            .str.strip()
+        )
+
+        df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce")
+
+        # Clean balance if available
+        if "Balance" in df.columns:
+
+            df["Balance"] = (
+                df["Balance"]
+                .astype(str)
+                .str.replace("R", "", regex=False)
+                .str.replace(",", "", regex=False)
+                .str.strip()
+            )
+
+            df["Balance"] = pd.to_numeric(df["Balance"], errors="coerce")
+
+        # Parse dates
+        df["Date"] = pd.to_datetime(
+            df["Date"],
+            errors="coerce"
+        )
+
+        df = df.dropna(subset=["Date", "Amount"])
+
+        # Debit / Credit
+        df["Debit/Credit"] = df["Amount"].apply(
+            lambda x: "Debit" if x < 0 else "Credit"
+        )
+
+        df["Amount"] = df["Amount"].abs()
+
+        # Remove duplicate transactions
+        df = df.drop_duplicates()
+
+        # Categorize
+        df = categorize_transactions(df)
+
+        return df
+
+    except Exception as e:
+        st.error(f"Error processing file: {e}")
+        return None
 
         headers = lines[header_idx]
         data = lines[header_idx + 1:]
