@@ -1,1 +1,67 @@
-{"Uncategorized": [], "New category": [], "shopping": ["EMIRATES INSURANCE"], "Traveling": ["LULU HYPERMARKET"], "Fee": ["NOON.COM"]}
+{
+    "Groceries": [
+        "CHECKERS",
+        "SHOPRITE",
+        "PICK N PAY",
+        "SPAR",
+        "WOOLWORTHS"
+    ],
+
+    "Transport": [
+        "UBER",
+        "BOLT",
+        "GAUTRAIN"
+    ],
+
+    "Fuel": [
+        "ENGEN",
+        "SHELL",
+        "TOTAL"
+    ],
+
+    "Shopping": [
+        "TAKEALOT",
+        "MR PRICE",
+        "NOON.COM"
+    ],
+
+    "Insurance": [
+        "EMIRATES INSURANCE"
+    ],
+
+    "Travel": [
+        "LULU HYPERMARKET"
+    ],
+
+    "Entertainment": [
+        "NETFLIX",
+        "SPOTIFY"
+    ],
+
+    "Bank Charges": [
+        "FNB",
+        "CAPITEC"
+    ],
+
+    "Income": [
+        "SALARY",
+        "PAYROLL"
+    ],
+
+    "Restaurants": [
+        "KFC",
+        "MCDONALDS",
+        "BURGER KING"
+    ],  
+
+    "Utilities": [
+        "ELECTRICITY",
+        "WATER",
+        "GAS",
+        "INTERNET",
+        "Airtime",
+        "Data"
+    ],
+
+    "Other": []
+}
