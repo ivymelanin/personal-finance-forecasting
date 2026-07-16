@@ -158,19 +158,10 @@ def main():
             st.session_state.debits_df = debits_df.copy()
 
             tab1, tab2 = st.tabs(["Expense (Debits)", "Payments (Credits)"])
-            with tab1:
-                new_category = st.text_input("New Category Name")
-                add_button = st.button("Add category")
+            
 
-                if add_button and new_category:
-                    if new_category not in st.session_state.categories:
-                        st.session_state.categories[new_category] = []
-                        save_categories()
-                        st.success(f"Added a new category:{new_category}")
-                        st.rerun()
-
-                st.subheader("Your Expenses")
-                edited_df = st.dataframe(
+            st.subheader("Your Expenses")
+            edited_df = st.dataframe(
                     st.session_state.debits_df[["Date", "Details", "Amount", "Category"]],
                     column_config={
                         "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
@@ -186,38 +177,49 @@ def main():
 
                 )
 
-                save_button = st.button("Apply Changes", type="primary")
-                if save_button:
-                    for idx, row in edited_df.iterrows():
-                        new_category = row["Category"]
-                        if new_category == st.session_state.debits_df.at[idx, "Category"]:
-                            continue
+                
+            
 
-                        details = row["Details"]
-                        st.session_state.debits_df.at[idx, "Category"] = new_category
-                        add_keyword_to_category(new_category, details)
+                        
 
                     
-                st.subheader('Expense Summary')
-                category_totals = st.session_state.debits_df.groupby("Category")["Amount"].sum().reset_index()
-                category_totals = category_totals.sort_values("Amount", ascending=False)
+            st.subheader('Expense Summary')
+            category_totals = st.session_state.debits_df.groupby("Category")["Amount"].sum().reset_index()
+            category_totals = category_totals.sort_values("Amount", ascending=False)
 
-                st.dataframe(
-                    category_totals,
-                    column_config={
-                        "Amount": st.column_config.NumberColumn("Amount", format="R %.2f")
-                    },
-                    use_container_width=True,
-                    hide_index=True
-                )
+            st.dataframe(
+                st.session_state.debits_df[["Date", "Details", "Amount", "Category"]],
+                column_config={
+                "Date": st.column_config.DateColumn(
+                "Date",
+                format="DD/MM/YYYY",
+                width="small",
+                ),
+                "Details": st.column_config.TextColumn(
+                "Details",
+                width="large",
+                ),
+                "Amount": st.column_config.NumberColumn(
+                "Amount",
+                format="R %.2f",
+                width="small",
+                ),
+                "Category": st.column_config.TextColumn(
+                "Category",
+                width="medium",
+                 ),
+                },
+            hide_index=True,
+            use_container_width=True,
+)
 
-                fig = px.pie(
+            fig = px.pie(
                     category_totals,
                     values="Amount",
                     names="Category",
                     title="Expenses by Category"
                 )
-                st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
 
             with tab2: 
                 st.subheader("Income Summary")
