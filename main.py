@@ -24,7 +24,6 @@ def save_categories():
         json.dump(st.session_state.categories, f)
     
 def categorize_transactions(df):
-    categories = st.session_state.categories
 
     df["Category"] = "Other"
 
@@ -32,74 +31,63 @@ def categorize_transactions(df):
 
         details = str(row["Details"]).upper()
 
-        for category, keywords in categories.items():
+        for category, keywords in st.session_state.categories.items():
 
-            if any(keyword.upper() in details for keyword in keywords):
+            for keyword in keywords:
 
-                df.at[index, "Category"] = category
-                break
+                if keyword.upper() in details:
+
+                    df.at[index, "Category"] = category
+                    break
 
     return df
             
-ef load_transactions(file):
+def load_transactions(file):
     try:
-        import csv
-        import io
-
         file.seek(0)
-        content = file.read().decode("utf-8-sig")
 
-        reader = csv.reader(io.StringIO(content))
-
-        rows = []
-
-        for row in reader:
-            row = [cell.strip() for cell in row]
-
-            if not any(row):
-                continue
-
-            rows.append(row)
-
-        # Find the transaction table header
-        header_index = None
-
-        for i, row in enumerate(rows):
-
-            lower = [x.lower() for x in row]
-
-            if (
-                len(lower) >= 4
-                and lower[0] == "date"
-                and "amount" in lower
-                and "balance" in lower
-                and "description" in lower
-            ):
-                header_index = i
-                break
-
-        if header_index is None:
-            st.error("Could not locate transaction table.")
-            return None
+        lines = file.read().decode("utf-8-sig").splitlines()
 
         transactions = []
 
-        for row in rows[header_index + 1:]:
+        start = False
 
-            # Ignore incomplete rows
-            if len(row) < 4:
+        for line in lines:
+
+            line = line.strip()
+
+            if not line:
                 continue
 
-            # Merge extra columns into Description
-            if len(row) > 4:
-                row = row[:3] + [",".join(row[3:])]
+            # Detect transaction header
+            if line.startswith("Date"):
+                start = True
+                continue
+
+            if not start:
+                continue
+
+            # Split ONLY first 3 commas
+            parts = line.split(",", 3)
+
+            if len(parts) != 4:
+                continue
+
+            date = parts[0].strip()
+            amount = parts[1].strip()
+            balance = parts[2].strip()
+            details = parts[3].strip()
 
             transactions.append({
-                "Date": row[0],
-                "Amount": row[1],
-                "Balance": row[2],
-                "Details": row[3]
+                "Date": date,
+                "Amount": amount,
+                "Balance": balance,
+                "Details": details
             })
+
+        if len(transactions) == 0:
+            st.error("No transactions found.")
+            return None
 
         df = pd.DataFrame(transactions)
 
@@ -123,9 +111,10 @@ ef load_transactions(file):
 
         df["Balance"] = pd.to_numeric(df["Balance"], errors="coerce")
 
-        # Dates
+        # Parse dates
         df["Date"] = pd.to_datetime(
             df["Date"],
+            format="%Y/%m/%d",
             errors="coerce"
         )
 
@@ -181,7 +170,7 @@ def main():
                         st.rerun()
 
                 st.subheader("Your Expenses")
-                edited_df = st.data_editor(
+                edited_df = st.dataframe(
                     st.session_state.debits_df[["Date", "Details", "Amount", "Category"]],
                     column_config={
                         "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
