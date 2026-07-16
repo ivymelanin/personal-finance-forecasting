@@ -41,85 +41,71 @@ def categorize_transactions(df):
 
     return df
             
-def load_transactions(file):
+ef load_transactions(file):
     try:
+        import csv
+        import io
+
         file.seek(0)
+        content = file.read().decode("utf-8-sig")
 
-        # Read CSV while allowing inconsistent rows
-        df = pd.read_csv(
-            file,
-            skip_blank_lines=True,
-            engine="python",
-            on_bad_lines="skip"
-        )
+        reader = csv.reader(io.StringIO(content))
 
-        # Find the actual transaction header
-        if "Date" not in df.columns:
-            file.seek(0)
+        rows = []
 
-            lines = file.read().decode("utf-8-sig").splitlines()
+        for row in reader:
+            row = [cell.strip() for cell in row]
 
-            header_line = None
+            if not any(row):
+                continue
 
-            for i, line in enumerate(lines):
-                cols = [c.strip().lower() for c in line.split(",")]
+            rows.append(row)
 
-                if (
-                    "date" in cols
-                    and "amount" in cols
-                    and "balance" in cols
-                    and (
-                        "description" in cols
-                        or "details" in cols
-                    )
-                ):
-                    header_line = i
-                    break
+        # Find the transaction table header
+        header_index = None
 
-            if header_line is None:
-                st.error("Could not locate transaction table.")
-                return None
+        for i, row in enumerate(rows):
 
-            file.seek(0)
+            lower = [x.lower() for x in row]
 
-            df = pd.read_csv(
-                file,
-                skiprows=header_line,
-                engine="python"
-            )
+            if (
+                len(lower) >= 4
+                and lower[0] == "date"
+                and "amount" in lower
+                and "balance" in lower
+                and "description" in lower
+            ):
+                header_index = i
+                break
 
-        # Rename columns
-        rename_map = {}
+        if header_index is None:
+            st.error("Could not locate transaction table.")
+            return None
 
-        for col in df.columns:
+        transactions = []
 
-            lower = col.lower()
+        for row in rows[header_index + 1:]:
 
-            if lower == "date":
-                rename_map[col] = "Date"
+            # Ignore incomplete rows
+            if len(row) < 4:
+                continue
 
-            elif lower == "amount":
-                rename_map[col] = "Amount"
+            # Merge extra columns into Description
+            if len(row) > 4:
+                row = row[:3] + [",".join(row[3:])]
 
-            elif lower == "balance":
-                rename_map[col] = "Balance"
+            transactions.append({
+                "Date": row[0],
+                "Amount": row[1],
+                "Balance": row[2],
+                "Details": row[3]
+            })
 
-            elif lower in ["description", "details"]:
-                rename_map[col] = "Details"
+        df = pd.DataFrame(transactions)
 
-        df = df.rename(columns=rename_map)
-
-        required = ["Date", "Amount", "Details"]
-
-        for col in required:
-            if col not in df.columns:
-                st.error(f"Missing required column: {col}")
-                return None
-
-        # Clean amount
+        # Clean Amount
         df["Amount"] = (
             df["Amount"]
-            .astype(str)
             .str.replace("R", "", regex=False)
             .str.replace(",", "", regex=False)
             .str.strip()
@@ -127,20 +113,17 @@ def load_transactions(file):
 
         df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce")
 
-        # Clean balance if available
-        if "Balance" in df.columns:
+        # Clean Balance
+        df["Balance"] = (
+            df["Balance"]
+            .str.replace("R", "", regex=False)
+            .str.replace(",", "", regex=False)
+            .str.strip()
+        )
 
-            df["Balance"] = (
-                df["Balance"]
-                .astype(str)
-                .str.replace("R", "", regex=False)
-                .str.replace(",", "", regex=False)
-                .str.strip()
-            )
+        df["Balance"] = pd.to_numeric(df["Balance"], errors="coerce")
 
-            df["Balance"] = pd.to_numeric(df["Balance"], errors="coerce")
-
-        # Parse dates
+        # Dates
         df["Date"] = pd.to_datetime(
             df["Date"],
             errors="coerce"
@@ -155,64 +138,10 @@ def load_transactions(file):
 
         df["Amount"] = df["Amount"].abs()
 
-        # Remove duplicate transactions
-        df = df.drop_duplicates()
-
         # Categorize
         df = categorize_transactions(df)
 
         return df
-
-    except Exception as e:
-        st.error(f"Error processing file: {e}")
-        return None
-
-        headers = lines[header_idx]
-        data = lines[header_idx + 1:]
-
-        fixed_rows = []
-
-        for row in data:
-            if len(row) > len(headers):
-        # Merge any extra columns into the Description column
-                row = row[:3] + [",".join(row[3:])]
-            elif len(row) < len(headers):
-                row += [""] * (len(headers) - len(row))
-
-            fixed_rows.append(row)
-
-        df = pd.DataFrame(fixed_rows, columns=headers)
-
-        df = df.rename(columns={
-            "Date": "Date",
-            "Amount": "Amount",
-            "Description": "Details",
-        })
-
-        df["Amount"] = (
-            df["Amount"]
-            .astype(str)
-            .str.replace(",", "", regex=False)
-            .str.replace("R", "", regex=False)
-            .str.strip()
-        )
-
-        df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce")
-        df = df.dropna(subset=["Amount"])
-
-        df["Debit/Credit"] = df["Amount"].apply(
-            lambda x: "Debit" if x < 0 else "Credit"
-        )
-        df["Amount"] = df["Amount"].abs()
-
-        df["Date"] = pd.to_datetime(
-            df["Date"],
-            format="%Y/%m/%d",
-            errors="coerce"
-        )
-        df = df.dropna(subset=["Date"])
-
-        return categorize_transactions(df)
 
     except Exception as e:
         st.error(f"Error processing file: {e}")
