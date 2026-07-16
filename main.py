@@ -211,7 +211,7 @@ def main():
                 },
             hide_index=True,
             use_container_width=True,
-)
+            )
 
             fig = px.pie(
                     category_totals,
