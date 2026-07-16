@@ -4,7 +4,8 @@
         "SHOPRITE",
         "PICK N PAY",
         "SPAR",
-        "WOOLWORTHS"
+        "WOOLWORTHS",
+        "CHECKSAVE"
     ],
 
     "Transport": [
@@ -40,7 +41,10 @@
 
     "Bank Charges": [
         "FNB",
-        "CAPITEC"
+        "CAPITEC",
+        "EFT",
+        "BYC DEBIT"
+
     ],
 
     "Income": [
