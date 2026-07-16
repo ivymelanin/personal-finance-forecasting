@@ -23,7 +23,9 @@
     "Shopping": [
         "TAKEALOT",
         "MR PRICE",
-        "NOON.COM"
+        "NOON.COM",
+        "UBER EATS",
+        "MR D FOOD"
     ],
 
     "Insurance": [
@@ -43,13 +45,17 @@
         "FNB",
         "CAPITEC",
         "EFT",
-        "BYC DEBIT"
+        "BYC DEBIT",
+        "PAYPAL FEE",
+        "MONTHLY ACCOUNF FEE",
+        "SERVICE FEE"
 
     ],
 
     "Income": [
         "SALARY",
-        "PAYROLL"
+        "PAYROLL",
+        "UVU Africa NPC"        
     ],
 
     "Restaurants": [
@@ -65,6 +71,14 @@
         "INTERNET",
         "Airtime",
         "Data"
+    ],
+
+    "Transfers": [
+        "APB",
+        "LERATO",
+        "X MAZIBUKO",
+        "LIFA",
+        "SWITCH"
     ],
 
     "Other": []
