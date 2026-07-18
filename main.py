@@ -5,6 +5,13 @@ import json
 import os
 import csv
 import io
+import pytesseract
+from PIL import Image
+import pdfplumber
+import pytesseract
+
+pytesseract.pytesseract.tesseract_cmd = (
+    r"C:\Users\motlalepule.khauta\Downloads\tesseract-ocr-w64-setup-5.5.0.20241111.exe")
 
 st.set_page_config(page_title="Finance Forecasting", page_icon="", layout="wide")
 
@@ -144,10 +151,66 @@ def add_keyword_to_category(category, keyword):
         return True
     
     return False
+
+def load_pdf(file):
+
+    text = ""
+
+    with pdfplumber.open(file) as pdf:
+
+        for page in pdf.pages:
+
+            extracted = page.extract_text()
+
+            if extracted:
+                text += extracted + "\n"
+
+    st.text_area(
+        "Extracted Text",
+        text,
+        height=300
+    )
+
+    return None
+
+def load_image(file):
+
+    image = Image.open(file)
+
+    st.image(image)
+
+    text = pytesseract.image_to_string(image)
+
+    st.text_area(
+        "OCR Result",
+        text,
+        height=300
+    )
+
+    return None
+
 def main():
     st.title("Finance Dashboard")
 
-    uploaded_file = st.file_uploader("upload your transaction CSV file", type=["csv"])
+    uploaded_file = st.file_uploader("Upload your bank statement",
+    type=["csv", "pdf", "png", "jpg", "jpeg"])
+
+    if uploaded_file:
+
+        extension = uploaded_file.name.split(".")[-1].lower()
+
+    if extension == "csv":
+        df = load_transactions(uploaded_file)
+
+    elif extension == "pdf":
+        df = load_pdf(uploaded_file)
+
+    elif extension in ["png", "jpg", "jpeg"]:
+        df = load_image(uploaded_file)
+
+    else:
+        st.error("Unsupported file type.")
+        st.stop()
 
     if uploaded_file is not None:
         df = load_transactions(uploaded_file)
