@@ -192,12 +192,15 @@ def load_image(file):
 def main():
     st.title("Finance Dashboard")
 
-    uploaded_file = st.file_uploader("Upload your bank statement",
-    type=["csv", "pdf", "png", "jpg", "jpeg"])
+    uploaded_file = st.file_uploader(
+        "Upload your bank statement",
+        type=["csv", "pdf", "png", "jpg", "jpeg"]
+    )
 
-    if uploaded_file:
+    if uploaded_file is None:
+        return
 
-        extension = uploaded_file.name.split(".")[-1].lower()
+    extension = uploaded_file.name.split(".")[-1].lower()
 
     if extension == "csv":
         df = load_transactions(uploaded_file)
@@ -210,21 +213,20 @@ def main():
 
     else:
         st.error("Unsupported file type.")
-        st.stop()
+        return
 
-    if uploaded_file is not None:
-        df = load_transactions(uploaded_file)
-        if df is not None:
-            debits_df = df[df["Debit/Credit"] == "Debit"].copy()
-            credits_df = df[df["Debit/Credit"] == "Credit"].copy()
+    if df is None:
+        return
 
-            st.session_state.debits_df = debits_df.copy()
+    debits_df = df[df["Debit/Credit"] == "Debit"].copy()
+    credits_df = df[df["Debit/Credit"] == "Credit"].copy()
 
-            tab1, tab2 = st.tabs(["Expense (Debits)", "Payments (Credits)"])
-            
+    st.session_state.debits_df = debits_df.copy()
 
-            st.subheader("Your Expenses")
-            edited_df = st.dataframe(
+    tab1, tab2 = st.tabs(["Expense (Debits)", "Payments (Credits)"])
+
+    st.subheader("Your Expenses")
+    edited_df = st.dataframe(
                     st.session_state.debits_df[["Date", "Details", "Amount", "Category"]],
                     column_config={
                         "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
@@ -246,11 +248,11 @@ def main():
                         
 
                     
-            st.subheader('Expense Summary')
-            category_totals = st.session_state.debits_df.groupby("Category")["Amount"].sum().reset_index()
-            category_totals = category_totals.sort_values("Amount", ascending=False)
+    st.subheader('Expense Summary')
+    category_totals = st.session_state.debits_df.groupby("Category")["Amount"].sum().reset_index()
+    category_totals = category_totals.sort_values("Amount", ascending=False)
 
-            st.dataframe(
+    st.dataframe(
                 st.session_state.debits_df[["Date", "Details", "Amount", "Category"]],
                 column_config={
                 "Date": st.column_config.DateColumn(
@@ -276,15 +278,15 @@ def main():
             use_container_width=True,
             )
 
-            fig = px.pie(
+    fig = px.pie(
                     category_totals,
                     values="Amount",
                     names="Category",
                     title="Expenses by Category"
                 )
-            st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-            with tab2: 
+    with tab2: 
                 st.subheader("Income Summary")
                 total_payments = credits_df["Amount"].sum()
                 st.metric("Total Payments", f"R {total_payments:,.2f}")
