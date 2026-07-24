@@ -9,6 +9,7 @@ import pytesseract
 from PIL import Image
 import pdfplumber
 import pytesseract
+import re
 
 pytesseract.pytesseract.tesseract_cmd = (
     r"C:\Users\motlalepule.khauta\Downloads\tesseract-ocr-w64-setup-5.5.0.20241111.exe")
@@ -154,24 +155,74 @@ def add_keyword_to_category(category, keyword):
 
 def load_pdf(file):
 
-    text = ""
+    transactions = []
 
     with pdfplumber.open(file) as pdf:
 
         for page in pdf.pages:
 
-            extracted = page.extract_text()
+            text = page.extract_text()
 
-            if extracted:
-                text += extracted + "\n"
+            if not text:
+                continue
 
-    st.text_area(
-        "Extracted Text",
-        text,
-        height=300
+            lines = text.split("\n")
+
+            for line in lines:
+
+                # FNB transaction format:
+                # 2026/06/11  -20.00  250.99  Checkers Hyper
+
+                match = re.match(
+                    r"(\d{4}/\d{2}/\d{2})\s+(-?[\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+(.*)",
+                    line
+                )
+
+                if match:
+
+                    transactions.append({
+
+                        "Date": match.group(1),
+
+                        "Amount": match.group(2),
+
+                        "Balance": match.group(3),
+
+                        "Details": match.group(4)
+
+                    })
+
+    if len(transactions) == 0:
+
+        st.error("No transactions found in PDF.")
+
+        return None
+
+    df = pd.DataFrame(transactions)
+
+    df["Amount"] = (
+        df["Amount"]
+        .str.replace(",", "")
+        .astype(float)
     )
 
-    return None
+    df["Balance"] = (
+        df["Balance"]
+        .str.replace(",", "")
+        .astype(float)
+    )
+
+    df["Date"] = pd.to_datetime(df["Date"])
+
+    df["Debit/Credit"] = df["Amount"].apply(
+        lambda x: "Debit" if x < 0 else "Credit"
+    )
+
+    df["Amount"] = df["Amount"].abs()
+
+    df = categorize_transactions(df)
+
+    return df
 
 def load_image(file):
 
