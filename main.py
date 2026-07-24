@@ -154,75 +154,42 @@ def add_keyword_to_category(category, keyword):
     return False
 
 def load_pdf(file):
-
     transactions = []
 
     with pdfplumber.open(file) as pdf:
-
         for page in pdf.pages:
 
-            text = page.extract_text()
+            tables = page.extract_tables()
 
-            if not text:
-                continue
+            for table in tables:
+                if not table:
+                    continue
 
-            lines = text.split("\n")
+                for row in table:
+                    if not row:
+                        continue
 
-            for line in lines:
+                    # Remove empty cells
+                    row = [str(cell).strip() if cell else "" for cell in row]
 
-                # FNB transaction format:
-                # 2026/06/11  -20.00  250.99  Checkers Hyper
+                    # Skip rows that don't look like transactions
+                    if len(row) < 4:
+                        continue
 
-                match = re.match(
-                    r"(\d{4}/\d{2}/\d{2})\s+(-?[\d,]+\.\d{2})\s+([\d,]+\.\d{2})\s+(.*)",
-                    line
-                )
+                    # Skip headers
+                    if "date" in row[0].lower():
+                        continue
 
-                if match:
+                    transactions.append(row)
 
-                    transactions.append({
-
-                        "Date": match.group(1),
-
-                        "Amount": match.group(2),
-
-                        "Balance": match.group(3),
-
-                        "Details": match.group(4)
-
-                    })
-
-    if len(transactions) == 0:
-
-        st.error("No transactions found in PDF.")
-
+    if not transactions:
+        st.error("No transactions found.")
         return None
 
-    df = pd.DataFrame(transactions)
+    # Show what was extracted
+    st.write(pd.DataFrame(transactions))
 
-    df["Amount"] = (
-        df["Amount"]
-        .str.replace(",", "")
-        .astype(float)
-    )
-
-    df["Balance"] = (
-        df["Balance"]
-        .str.replace(",", "")
-        .astype(float)
-    )
-
-    df["Date"] = pd.to_datetime(df["Date"])
-
-    df["Debit/Credit"] = df["Amount"].apply(
-        lambda x: "Debit" if x < 0 else "Credit"
-    )
-
-    df["Amount"] = df["Amount"].abs()
-
-    df = categorize_transactions(df)
-
-    return df
+    return None
 
 def load_image(file):
 
