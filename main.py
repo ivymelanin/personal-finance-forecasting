@@ -259,12 +259,6 @@ def main():
                     key="category_editor"
 
                 )
-
-                
-            
-
-                        
-
                     
     st.subheader('Expense Summary')
     category_totals = st.session_state.debits_df.groupby("Category")["Amount"].sum().reset_index()
