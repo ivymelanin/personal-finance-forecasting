@@ -10,6 +10,7 @@ from PIL import Image
 import pdfplumber
 import pytesseract
 import re
+import fitz 
 
 pytesseract.pytesseract.tesseract_cmd = (
     r"C:\Users\motlalepule.khauta\Downloads\tesseract-ocr-w64-setup-5.5.0.20241111.exe")
@@ -155,84 +156,101 @@ def add_keyword_to_category(category, keyword):
 
 def load_pdf(file):
 
+    doc = fitz.open(stream=file.read(), filetype="pdf")
+
     transactions = []
 
-    with pdfplumber.open(file) as pdf:
+    current_year = "2026"
 
-        current_year = None
+    for page in doc:
 
-        # Get statement year from first page
-        first_page = pdf.pages[0].extract_text()
+        text = page.get_text("text")
 
-        year_match = re.search(r"Statement Date\s*:\s*\d{1,2}\s+\w+\s+(\d{4})", first_page)
+        lines = text.split("\n")
 
-        if year_match:
-            current_year = year_match.group(1)
-        else:
-            current_year = "2026"
+        for line in lines:
 
-        for page in pdf.pages:
+            line = line.strip()
 
-            tables = page.extract_tables()
+            # Skip blank lines
+            if not line:
+                continue
 
-            for table in tables:
+            # Only process transaction lines
+            if not re.match(r"^\d{2}\s[A-Za-z]{3}", line):
+                continue
 
-                if not table:
-                    continue
+            # Ignore summary/footer lines
+            if "Closing Balance" in line:
+                continue
 
-                for row in table:
+            parts = line.split()
 
-                    if not row:
-                        continue
+            # Require at least:
+            # 14 Apr Amount Balance Description
+            if len(parts) < 4:
+                continue
 
-                    row = [str(c).strip() if c else "" for c in row]
+            date = parts[0] + " " + parts[1]
 
-                    # Must start with a day + month
-                    if len(row) < 4:
-                        continue
+            amount = None
+            balance = None
+            description = []
 
-                    if not re.match(r"\d{1,2}\s+[A-Za-z]{3}", row[0]):
-                        continue
+            for word in parts[2:]:
 
-                    date = f"{row[0]} {current_year}"
+                clean = word.replace(",", "")
 
-                    description = row[1]
+                if amount is None and re.match(r"^\d+\.\d+(Cr|Dr)?$", clean):
 
-                    amount = row[2]
+                    amount = clean
 
-                    balance = row[3]
+                elif amount is not None and balance is None and re.match(r"^\d+\.\d+(Cr|Dr)?$", clean):
 
-                    amount = amount.replace(",", "")
+                    balance = clean
 
-                    debit_credit = "Credit"
+                else:
 
-                    if "Cr" in amount:
-                        amount = amount.replace("Cr", "")
-                    else:
-                        debit_credit = "Debit"
+                    description.append(word)
 
-                    st.write({
-                        "Date": row[0],
-                        "Description": row[1],
-                        "Amount": row[2],
-                        "Balance": row[3]
-                    })
+            if amount is None:
+                continue
 
-                    transactions.append(
-                        {
-                            "Date": pd.to_datetime(
-                                date,
-                                format="%d %b %Y"
-                            ),
-                            "Details": description,
-                            "Amount": abs(amount),
-                            "Balance": balance.replace("Cr", "").replace("Dr", "").replace(",", ""),
-                            "Debit/Credit": debit_credit,
-                        }
-                    )
+            debit_credit = "Credit"
+
+            if "Cr" in amount:
+
+                amount = amount.replace("Cr", "")
+
+            elif "Dr" in amount:
+
+                amount = amount.replace("Dr", "")
+
+                debit_credit = "Debit"
+
+            amount = float(amount)
+
+            transactions.append({
+
+                "Date": pd.to_datetime(
+                    f"{date} {current_year}",
+                    format="%d %b %Y"
+                ),
+
+                "Details": " ".join(description),
+
+                "Amount": abs(amount),
+
+                "Balance": balance,
+
+                "Debit/Credit": debit_credit
+
+            })
 
     if len(transactions) == 0:
-        st.error("No transactions found.")
+
+        st.error("No transactions detected.")
+
         return None
 
     df = pd.DataFrame(transactions)
