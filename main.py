@@ -154,42 +154,87 @@ def add_keyword_to_category(category, keyword):
     return False
 
 def load_pdf(file):
+
     transactions = []
 
     with pdfplumber.open(file) as pdf:
+
+        current_year = None
+
+        # Get statement year from first page
+        first_page = pdf.pages[0].extract_text()
+
+        year_match = re.search(r"Statement Date\s*:\s*\d{1,2}\s+\w+\s+(\d{4})", first_page)
+
+        if year_match:
+            current_year = year_match.group(1)
+        else:
+            current_year = "2026"
+
         for page in pdf.pages:
 
             tables = page.extract_tables()
 
             for table in tables:
+
                 if not table:
                     continue
 
                 for row in table:
+
                     if not row:
                         continue
 
-                    # Remove empty cells
-                    row = [str(cell).strip() if cell else "" for cell in row]
+                    row = [str(c).strip() if c else "" for c in row]
 
-                    # Skip rows that don't look like transactions
+                    # Must start with a day + month
                     if len(row) < 4:
                         continue
 
-                    # Skip headers
-                    if "date" in row[0].lower():
+                    if not re.match(r"\d{1,2}\s+[A-Za-z]{3}", row[0]):
                         continue
 
-                    transactions.append(row)
+                    date = f"{row[0]} {current_year}"
 
-    if not transactions:
+                    description = row[1]
+
+                    amount = row[2]
+
+                    balance = row[3]
+
+                    amount = amount.replace(",", "")
+
+                    debit_credit = "Credit"
+
+                    if "Cr" in amount:
+                        amount = amount.replace("Cr", "")
+                    else:
+                        debit_credit = "Debit"
+
+                    amount = float(amount)
+
+                    transactions.append(
+                        {
+                            "Date": pd.to_datetime(
+                                date,
+                                format="%d %b %Y"
+                            ),
+                            "Details": description,
+                            "Amount": abs(amount),
+                            "Balance": balance.replace("Cr", "").replace("Dr", "").replace(",", ""),
+                            "Debit/Credit": debit_credit,
+                        }
+                    )
+
+    if len(transactions) == 0:
         st.error("No transactions found.")
         return None
 
-    # Show what was extracted
-    st.write(pd.DataFrame(transactions))
+    df = pd.DataFrame(transactions)
 
-    return None
+    df = categorize_transactions(df)
+
+    return df
 
 def load_image(file):
 
