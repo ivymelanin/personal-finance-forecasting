@@ -211,7 +211,12 @@ def load_pdf(file):
                     else:
                         debit_credit = "Debit"
 
-                    amount = float(amount)
+                    st.write({
+                        "Date": row[0],
+                        "Description": row[1],
+                        "Amount": row[2],
+                        "Balance": row[3]
+                    })
 
                     transactions.append(
                         {
