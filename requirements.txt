@@ -7,3 +7,4 @@ pdfplumber
 pillow
 pytesseract
 opencv-python
+PyMuPDF
