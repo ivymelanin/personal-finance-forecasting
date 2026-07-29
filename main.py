@@ -12,8 +12,6 @@ import pytesseract
 import re
 import fitz 
 
-pytesseract.pytesseract.tesseract_cmd = (
-    r"C:\Users\motlalepule.khauta\Downloads\tesseract-ocr-w64-setup-5.5.0.20241111.exe")
 
 st.set_page_config(page_title="Finance Forecasting", page_icon="", layout="wide")
 
