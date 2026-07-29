@@ -255,6 +255,9 @@ def load_pdf(file):
 
     return df
 
+def load_image(file):
+    st.info("Image processing will use Gemini.")
+    return None
 
 def main():
     st.title("Finance Dashboard")
