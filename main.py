@@ -5,10 +5,8 @@ import json
 import os
 import csv
 import io
-import pytesseract
 from PIL import Image
 import pdfplumber
-import pytesseract
 import re
 import fitz 
 
@@ -257,21 +255,6 @@ def load_pdf(file):
 
     return df
 
-def load_image(file):
-
-    image = Image.open(file)
-
-    st.image(image)
-
-    text = pytesseract.image_to_string(image)
-
-    st.text_area(
-        "OCR Result",
-        text,
-        height=300
-    )
-
-    return None
 
 def main():
     st.title("Finance Dashboard")
