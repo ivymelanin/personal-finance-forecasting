@@ -9,6 +9,7 @@ from PIL import Image
 import pdfplumber
 import re
 import fitz 
+from gemini_parser import extract_transactions
 
 
 st.set_page_config(page_title="Finance Forecasting", page_icon="", layout="wide")
@@ -36,6 +37,8 @@ def categorize_transactions(df):
 
         details = str(row["Details"]).upper()
 
+        found = False
+
         for category, keywords in st.session_state.categories.items():
 
             for keyword in keywords:
@@ -43,7 +46,11 @@ def categorize_transactions(df):
                 if keyword.upper() in details:
 
                     df.at[index, "Category"] = category
+                    found = True
                     break
+
+            if found:
+                break
 
     return df
             
@@ -150,114 +157,6 @@ def add_keyword_to_category(category, keyword):
     
     return False
 
-def load_pdf(file):
-
-    doc = fitz.open(stream=file.read(), filetype="pdf")
-
-    transactions = []
-
-    current_year = "2026"
-
-    for page in doc:
-
-        text = page.get_text("text")
-
-        lines = text.split("\n")
-
-        for line in lines:
-
-            line = line.strip()
-
-            # Skip blank lines
-            if not line:
-                continue
-
-            # Only process transaction lines
-            if not re.match(r"^\d{2}\s[A-Za-z]{3}", line):
-                continue
-
-            # Ignore summary/footer lines
-            if "Closing Balance" in line:
-                continue
-
-            parts = line.split()
-
-            # Require at least:
-            # 14 Apr Amount Balance Description
-            if len(parts) < 4:
-                continue
-
-            date = parts[0] + " " + parts[1]
-
-            amount = None
-            balance = None
-            description = []
-
-            for word in parts[2:]:
-
-                clean = word.replace(",", "")
-
-                if amount is None and re.match(r"^\d+\.\d+(Cr|Dr)?$", clean):
-
-                    amount = clean
-
-                elif amount is not None and balance is None and re.match(r"^\d+\.\d+(Cr|Dr)?$", clean):
-
-                    balance = clean
-
-                else:
-
-                    description.append(word)
-
-            if amount is None:
-                continue
-
-            debit_credit = "Credit"
-
-            if "Cr" in amount:
-
-                amount = amount.replace("Cr", "")
-
-            elif "Dr" in amount:
-
-                amount = amount.replace("Dr", "")
-
-                debit_credit = "Debit"
-
-            amount = float(amount)
-
-            transactions.append({
-
-                "Date": pd.to_datetime(
-                    f"{date} {current_year}",
-                    format="%d %b %Y"
-                ),
-
-                "Details": " ".join(description),
-
-                "Amount": abs(amount),
-
-                "Balance": balance,
-
-                "Debit/Credit": debit_credit
-
-            })
-
-    if len(transactions) == 0:
-
-        st.error("No transactions detected.")
-
-        return None
-
-    df = pd.DataFrame(transactions)
-
-    df = categorize_transactions(df)
-
-    return df
-
-def load_image(file):
-    st.info("Image processing will use Gemini.")
-    return None
 
 def main():
     st.title("Finance Dashboard")
@@ -276,10 +175,10 @@ def main():
         df = load_transactions(uploaded_file)
 
     elif extension == "pdf":
-        df = load_pdf(uploaded_file)
+        df = extract_transactions(uploaded_file)
 
     elif extension in ["png", "jpg", "jpeg"]:
-        df = load_image(uploaded_file)
+        df = extract_transactions(uploaded_file)
 
     else:
         st.error("Unsupported file type.")
