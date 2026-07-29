@@ -8,3 +8,5 @@ pillow
 pytesseract
 opencv-python
 PyMuPDF
+google-genai
+python-dotenv
