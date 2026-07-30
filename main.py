@@ -30,27 +30,21 @@ def save_categories():
         json.dump(st.session_state.categories, f)
     
 def categorize_transactions(df):
+    if "Category" not in df.columns:
+        df["Category"] = "Uncategorized"
 
-    df["Category"] = "Other"
+    for category, keywords in st.session_state.categories.items():
+        if category == "Uncategorized" or not keywords:
+            continue
+        
+        lowered_keywords = [keyword.lower().strip() for keyword in keywords if keyword]
 
-    for index, row in df.iterrows():
-
-        details = str(row["Details"]).upper()
-
-        found = False
-
-        for category, keywords in st.session_state.categories.items():
-
-            for keyword in keywords:
-
-                if keyword.upper() in details:
-
-                    df.at[index, "Category"] = category
-                    found = True
+        for idx, row in df.iterrows():
+            details = str(row["Details"]).lower().strip()
+            for keyword in lowered_keywords:
+                if keyword in details:
+                    df.at[idx, "Category"] = category
                     break
-
-            if found:
-                break
 
     return df
             
@@ -124,11 +118,7 @@ def load_transactions(file):
         df["Balance"] = pd.to_numeric(df["Balance"], errors="coerce")
 
         # Parse dates
-        df["Date"] = pd.to_datetime(
-            df["Date"],
-            format="%Y/%m/%d",
-            errors="coerce"
-        )
+        df["Date"] = pd.to_datetime(df["Date"], format="mixed", errors="coerce")
 
         df = df.dropna(subset=["Date", "Amount"])
 
@@ -140,6 +130,7 @@ def load_transactions(file):
         df["Amount"] = df["Amount"].abs()
 
         # Categorize
+        df["Category"] = "Uncategorized"
         df = categorize_transactions(df)
 
         return df
