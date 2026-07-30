@@ -19,7 +19,6 @@ def main():
 
     extension = uploaded_file.name.split(".")[-1].lower()
 
-    # Pass ALL supported formats through Gemini for auto-extraction and auto-categorization
     if extension in ["csv", "pdf", "png", "jpg", "jpeg"]:
         with st.spinner("Analyzing statement and categorizing transactions with Gemini AI..."):
             df = extract_transactions(uploaded_file)
@@ -42,29 +41,30 @@ def main():
 
     tab1, tab2 = st.tabs(["Expense (Debits)", "Payments (Credits)"])
 
+    all_categories = [
+        "Groceries", "Transport", "Fuel", "Restaurants", "Takeaways", "Coffee", 
+        "Shopping", "Entertainment", "Subscriptions", "Salary", "Interest", 
+        "Transfer", "ATM Withdrawal", "Cash Deposit", "Utilities", "Rent", 
+        "Insurance", "Medical", "Education", "Travel", "Investments", "Savings", 
+        "Bank Charges", "Mobile & Internet", "Government", "Taxes", "Loan Payment", "Other"
+    ]
+
     # TAB 1: EXPENSES
     with tab1:
         st.subheader("Your Expenses")
         if not debits_df.empty:
             display_df = debits_df[["Date", "Details", "Amount", "Category"]].copy()
 
-            all_categories = [
-                "Groceries", "Transport", "Fuel", "Restaurants", "Takeaways", "Coffee", 
-                "Shopping", "Entertainment", "Subscriptions", "Salary", "Interest", 
-                "Transfer", "ATM Withdrawal", "Cash Deposit", "Utilities", "Rent", 
-                "Insurance", "Medical", "Education", "Travel", "Investments", "Savings", 
-                "Bank Charges", "Mobile & Internet", "Government", "Taxes", "Loan Payment", "Other"
-            ]
-
             edited_df = st.dataframe(
                 display_df,
                 column_config={
-                    "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
-                    "Details": st.column_config.TextColumn("Details"),
-                    "Amount": st.column_config.NumberColumn("Amount", format="R %.2f"),
+                    "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY", width="small"),
+                    "Details": st.column_config.TextColumn("Details", width="large"),
+                    "Amount": st.column_config.NumberColumn("Amount", format="R %.2f", width="medium"),
                     "Category": st.column_config.SelectboxColumn(
                         "Category",
-                        options=all_categories
+                        options=all_categories,
+                        width="medium"
                     )
                 },
                 hide_index=True,
@@ -95,8 +95,10 @@ def main():
             st.dataframe(
                 credits_df[["Date", "Details", "Amount", "Category"]],
                 column_config={
-                    "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY"),
-                    "Amount": st.column_config.NumberColumn("Amount", format="R %.2f")
+                    "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY", width="small"),
+                    "Details": st.column_config.TextColumn("Details", width="large"),
+                    "Amount": st.column_config.NumberColumn("Amount", format="R %.2f", width="medium"),
+                    "Category": st.column_config.TextColumn("Category", width="medium")
                 },
                 hide_index=True,
                 use_container_width=True
