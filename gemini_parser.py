@@ -22,13 +22,16 @@ class Transaction(BaseModel):
 class Transactions(BaseModel):
     transactions: list[Transaction]
 
-# --- GEMINI CLIENT INITIALIZATION ---
-if "GEMINI_API_KEY" in st.secrets:
-    api_key = st.secrets["GEMINI_API_KEY"]
-else:
-    api_key = os.getenv("GEMINI_API_KEY")
+api_key = os.getenv("GEMINI_API_KEY")
 
-client = genai.Client(api_key=api_key)
+if not api_key:
+    try:
+        if "GEMINI_API_KEY" in st.secrets:
+            api_key = st.secrets["GEMINI_API_KEY"]
+    except Exception:
+        api_key = None
+
+client = genai.Client(api_key=api_key) if api_key else None
 
 PROMPT = """
 You are an expert financial analyst.
