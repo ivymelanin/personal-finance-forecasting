@@ -1,5 +1,5 @@
 import os
-import json
+import time
 import pandas as pd
 import streamlit as st
 from pydantic import BaseModel
@@ -7,11 +7,10 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from google.genai.errors import ServerError, APIError
-import time
-from main import categorize_transactions
 
 load_dotenv()
 
+# --- PYDANTIC SCHEMAS ---
 class Transaction(BaseModel):
     Date: str
     Details: str
@@ -20,11 +19,10 @@ class Transaction(BaseModel):
     Debit_Credit: str
     Category: str
 
-
 class Transactions(BaseModel):
     transactions: list[Transaction]
 
-# Read API key from Streamlit Cloud or .env
+# --- GEMINI CLIENT INITIALIZATION ---
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"]
 else:
@@ -113,27 +111,65 @@ If unsure, choose the closest category.
 Return ONLY valid JSON.
 """
 
-def extract_transactions(file):
+def extract_transactions(uploaded_file):
     max_retries = 3
-    df=None
+    df = None
+
     for attempt in range(max_retries):
         try:
-            # Your existing Gemini API call here:
-            # response = client.models.generate_content(...)
-            
-            # Convert response to DataFrame
-            # df = ... 
-            
-            # CRITICAL: Always attach Category before returning
-            if df is not None and not df.empty:
-                if "Category" not in df.columns:
-                    df["Category"] = "Uncategorized"
-                return categorize_transactions(df)
-            return None
+            # 1. Prepare and Upload File
+            uploaded_file.seek(0)
+            gemini_file = client.files.upload(
+                file=uploaded_file,
+                config=types.UploadFileConfig(mime_type=uploaded_file.type)
+            )
 
-        except ServerError as e:
+            # 2. Call Gemini API
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[PROMPT, gemini_file],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=Transactions,
+                ),
+            )
+
+            if response.parsed is None:
+                st.error("Failed to parse document response.")
+                return None
+
+            data = response.parsed
+            rows = []
+
+            # 3. Build DataFrame Rows (Explicitly including Category)
+            for t in data.transactions:
+                rows.append(
+                    {
+                        "Date": t.Date,
+                        "Details": t.Details,
+                        "Amount": abs(t.Amount),
+                        "Balance": t.Balance,
+                        "Debit/Credit": t.Debit_Credit.title().strip(), # Standardize e.g. 'Debit'/'Credit'
+                        "Category": t.Category if t.Category else "Uncategorized",
+                    }
+                )
+
+            df = pd.DataFrame(rows)
+
+            # 4. Clean Data Types safely
+            df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce")
+            df["Balance"] = pd.to_numeric(df["Balance"], errors="coerce")
+            df["Date"] = pd.to_datetime(df["Date"], format="mixed", errors="coerce")
+
+            # Drop unusable rows
+            df = df.dropna(subset=["Date", "Amount"])
+
+            # Break out of loop on success
+            break
+
+        except ServerError:
             if attempt < max_retries - 1:
-                time.sleep(2 * (attempt + 1))  # Wait 2, 4 seconds before retrying
+                time.sleep(2 * (attempt + 1))  # Exponential backoff (2s, 4s)
                 continue
             else:
                 st.error("Google AI service is currently busy (503 High Demand). Please wait a moment and try uploading again.")
@@ -142,61 +178,10 @@ def extract_transactions(file):
             st.error(f"Error parsing document: {str(e)}")
             return None
 
-    # Check if df was successfully populated
+    # Ensure Category column is guaranteed to exist
     if df is not None and not df.empty:
         if "Category" not in df.columns:
             df["Category"] = "Uncategorized"
-    return categorize_transactions(df)
+        return df
 
-def extract_transactions(uploaded_file):
-
-    uploaded_file.seek(0)
-
-    gemini_file = client.files.upload(
-    file=uploaded_file,
-    config=types.UploadFileConfig(
-        mime_type=uploaded_file.type
-    )
-)
-
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=[
-            PROMPT,
-            gemini_file,
-        ],
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=Transactions,
-        ),
-)
-
-    if response.parsed is None:
-        st.error(response.text)
-        return None
-
-    data = response.parsed
-
-    rows = []
-
-    for t in data.transactions:
-
-        rows.append(
-            {
-                "Date": t.Date,
-                "Details": t.Details,
-                "Amount": abs(t.Amount),
-                "Balance": t.Balance,
-                "Debit/Credit": t.Debit_Credit,
-            }
-        )
-    df = pd.DataFrame(rows)
-    df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce")
-
-    df["Balance"] = pd.to_numeric(df["Balance"], errors="coerce")
-
-    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-
-    df = df.dropna(subset=["Date", "Amount"])
-
-    return df
+    return None
