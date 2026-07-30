@@ -64,20 +64,24 @@ def extract_transactions(uploaded_file):
 
     uploaded_file.seek(0)
 
+    gemini_file = client.files.upload(
+    file=uploaded_file,
+    config=types.UploadFileConfig(
+        mime_type=uploaded_file.type
+    )
+)
+
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=[
             PROMPT,
-            {
-                "mime_type": uploaded_file.type,
-                "data": uploaded_file.read(),
-            },
+            gemini_file,
         ],
         config=types.GenerateContentConfig(
-        response_mime_type="application/json",
-        response_schema=Transactions,
-        )
-    )
+            response_mime_type="application/json",
+            response_schema=Transactions,
+        ),
+)
 
     if response.parsed is None:
         st.error(response.text)
