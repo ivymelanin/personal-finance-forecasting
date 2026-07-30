@@ -20,7 +20,7 @@ def main():
     extension = uploaded_file.name.split(".")[-1].lower()
 
     if extension in ["csv", "pdf", "png", "jpg", "jpeg"]:
-        with st.spinner("Analyzing statement and categorizing transactions with Gemini AI..."):
+        with st.spinner(""):
             df = extract_transactions(uploaded_file)
     else:
         st.error("Unsupported file type.")
@@ -53,19 +53,20 @@ def main():
     with tab1:
         st.subheader("Your Expenses")
         if not debits_df.empty:
-            display_df = debits_df[["Date", "Details", "Amount", "Category"]].copy()
+            # Reordered columns: Category before Amount to prevent right-align overlap
+            display_df = debits_df[["Date", "Details", "Category", "Amount"]].copy()
 
             edited_df = st.dataframe(
                 display_df,
                 column_config={
                     "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY", width="small"),
                     "Details": st.column_config.TextColumn("Details", width="large"),
-                    "Amount": st.column_config.NumberColumn("Amount", format="R %.2f", width="medium"),
                     "Category": st.column_config.SelectboxColumn(
                         "Category",
                         options=all_categories,
                         width="medium"
-                    )
+                    ),
+                    "Amount": st.column_config.NumberColumn("Amount", format="R %.2f", width="medium")
                 },
                 hide_index=True,
                 use_container_width=True,
@@ -92,13 +93,15 @@ def main():
         if not credits_df.empty:
             total_payments = credits_df["Amount"].sum()
             st.metric("Total Payments", f"R {total_payments:,.2f}")
+            
+            # Reordered columns here as well
             st.dataframe(
-                credits_df[["Date", "Details", "Amount", "Category"]],
+                credits_df[["Date", "Details", "Category", "Amount"]],
                 column_config={
                     "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY", width="small"),
                     "Details": st.column_config.TextColumn("Details", width="large"),
-                    "Amount": st.column_config.NumberColumn("Amount", format="R %.2f", width="medium"),
-                    "Category": st.column_config.TextColumn("Category", width="medium")
+                    "Category": st.column_config.TextColumn("Category", width="medium"),
+                    "Amount": st.column_config.NumberColumn("Amount", format="R %.2f", width="medium")
                 },
                 hide_index=True,
                 use_container_width=True
