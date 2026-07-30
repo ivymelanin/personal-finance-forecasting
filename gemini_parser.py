@@ -15,6 +15,7 @@ class Transaction(BaseModel):
     Amount: float
     Balance: float | None = None
     Debit_Credit: str
+    Category: str
 
 
 class Transactions(BaseModel):
@@ -30,34 +31,83 @@ client = genai.Client(api_key=api_key)
 
 
 PROMPT = """
-You are an expert financial document parser.
+You are an expert financial analyst.
 
-The uploaded file is a bank statement.
-
-It may be:
-- PDF
-- Image
-- Scan
-- Screenshot
-
-It may come from ANY bank.
+The uploaded document is a bank statement from any bank.
 
 Extract EVERY transaction.
 
-Ignore:
-- Headers
-- Footers
-- Logos
-- Addresses
-- Running totals
-- Opening balances
-- Closing balances
+For every transaction determine:
 
-Return every transaction exactly as it appears.
+- Date
+- Description
+- Amount
+- Balance (if available)
+- Debit or Credit
+- Spending Category
 
-Determine whether each transaction is Debit or Credit.
+Choose ONE category only.
 
-Convert dates to YYYY-MM-DD whenever possible.
+Use categories such as:
+
+Groceries
+Transport
+Fuel
+Restaurants
+Takeaways
+Coffee
+Shopping
+Entertainment
+Subscriptions
+Salary
+Interest
+Transfer
+ATM Withdrawal
+Cash Deposit
+Utilities
+Rent
+Insurance
+Medical
+Education
+Travel
+Investments
+Savings
+Bank Charges
+Mobile & Internet
+Government
+Taxes
+Loan Payment
+Other
+
+Examples:
+
+Checkers → Groceries
+Shoprite → Groceries
+Pick n Pay → Groceries
+Woolworths Food → Groceries
+
+Uber → Transport
+Bolt → Transport
+Engen → Fuel
+Shell → Fuel
+
+Netflix → Subscriptions
+Spotify → Subscriptions
+YouTube Premium → Subscriptions
+
+McDonald's → Restaurants
+KFC → Restaurants
+Nando's → Restaurants
+
+Clicks Pharmacy → Medical
+Dis-Chem → Medical
+
+Capitec Fee → Bank Charges
+Monthly Account Fee → Bank Charges
+
+If unsure, choose the closest category.
+
+Return ONLY valid JSON.
 """
 
 def extract_transactions(uploaded_file):
