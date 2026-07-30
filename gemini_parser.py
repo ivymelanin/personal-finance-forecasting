@@ -6,6 +6,9 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from google.genai.errors import ServerError, APIError
+import time
+from main import categorize_transactions
 
 load_dotenv()
 
@@ -109,6 +112,41 @@ If unsure, choose the closest category.
 
 Return ONLY valid JSON.
 """
+
+def extract_transactions(file):
+    max_retries = 3
+    df=None
+    for attempt in range(max_retries):
+        try:
+            # Your existing Gemini API call here:
+            # response = client.models.generate_content(...)
+            
+            # Convert response to DataFrame
+            # df = ... 
+            
+            # CRITICAL: Always attach Category before returning
+            if df is not None and not df.empty:
+                if "Category" not in df.columns:
+                    df["Category"] = "Uncategorized"
+                return categorize_transactions(df)
+            return None
+
+        except ServerError as e:
+            if attempt < max_retries - 1:
+                time.sleep(2 * (attempt + 1))  # Wait 2, 4 seconds before retrying
+                continue
+            else:
+                st.error("Google AI service is currently busy (503 High Demand). Please wait a moment and try uploading again.")
+                return None
+        except Exception as e:
+            st.error(f"Error parsing document: {str(e)}")
+            return None
+
+    # Check if df was successfully populated
+    if df is not None and not df.empty:
+        if "Category" not in df.columns:
+            df["Category"] = "Uncategorized"
+    return categorize_transactions(df)
 
 def extract_transactions(uploaded_file):
 
