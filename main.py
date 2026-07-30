@@ -20,7 +20,7 @@ def main():
     extension = uploaded_file.name.split(".")[-1].lower()
 
     if extension in ["csv", "pdf", "png", "jpg", "jpeg"]:
-        with st.spinner(""):
+        with st.spinner("Hang on tight, we're extracting your transactions..."):
             df = extract_transactions(uploaded_file)
     else:
         st.error("Unsupported file type.")
@@ -53,20 +53,19 @@ def main():
     with tab1:
         st.subheader("Your Expenses")
         if not debits_df.empty:
-            # Reordered columns: Category before Amount to prevent right-align overlap
-            display_df = debits_df[["Date", "Details", "Category", "Amount"]].copy()
+            display_df = debits_df[["Date", "Details", "Amount", "Category"]].copy()
 
             edited_df = st.dataframe(
                 display_df,
                 column_config={
                     "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY", width="small"),
                     "Details": st.column_config.TextColumn("Details", width="large"),
+                    "Amount": st.column_config.NumberColumn("Amount", format="R %.2f", width="medium"),
                     "Category": st.column_config.SelectboxColumn(
                         "Category",
                         options=all_categories,
                         width="medium"
-                    ),
-                    "Amount": st.column_config.NumberColumn("Amount", format="R %.2f", width="medium")
+                    )
                 },
                 hide_index=True,
                 use_container_width=True,
@@ -93,15 +92,13 @@ def main():
         if not credits_df.empty:
             total_payments = credits_df["Amount"].sum()
             st.metric("Total Payments", f"R {total_payments:,.2f}")
-            
-            # Reordered columns here as well
             st.dataframe(
-                credits_df[["Date", "Details", "Category", "Amount"]],
+                credits_df[["Date", "Details", "Amount", "Category"]],
                 column_config={
                     "Date": st.column_config.DateColumn("Date", format="DD/MM/YYYY", width="small"),
                     "Details": st.column_config.TextColumn("Details", width="large"),
-                    "Category": st.column_config.TextColumn("Category", width="medium"),
-                    "Amount": st.column_config.NumberColumn("Amount", format="R %.2f", width="medium")
+                    "Amount": st.column_config.NumberColumn("Amount", format="R %.2f", width="medium"),
+                    "Category": st.column_config.TextColumn("Category", width="medium")
                 },
                 hide_index=True,
                 use_container_width=True
