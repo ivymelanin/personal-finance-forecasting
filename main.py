@@ -1,94 +1,10 @@
 import os
-import json
-import csv
-import io
 import pandas as pd
 import streamlit as st
 import plotly.express as px
 from gemini_parser import extract_transactions
 
 st.set_page_config(page_title="Finance Dashboard", page_icon="💰", layout="wide")
-
-def load_transactions(file):
-    try:
-        file.seek(0)
-        file_contents = file.read().decode("utf-8-sig")
-        f = io.StringIO(file_contents)
-        reader = csv.reader(f)
-        
-        lines = [[cell.strip() for cell in row] for row in reader if row and any(cell.strip() for cell in row)]
-        
-        if not lines:
-            st.error("Uploaded CSV file is empty.")
-            return None
-
-        # Detect Header Row
-        header_idx = 0
-        for i, row in enumerate(lines):
-            row_str = "".join(row).lower()
-            if any(k in row_str for k in ["date", "amount", "detail", "desc"]):
-                header_idx = i
-                break
-
-        headers = lines[header_idx]
-        data_rows = lines[header_idx + 1:]
-
-        if data_rows:
-            max_cols = max(len(r) for r in data_rows)
-            if max_cols > len(headers):
-                headers += [f"Extra_{x}" for x in range(max_cols - len(headers))]
-
-        df = pd.DataFrame(data_rows, columns=headers)
-
-        # Dynamic Column Mapping
-        date_col, details_col, amount_col, type_col = None, None, None, None
-        for col in df.columns:
-            c_low = str(col).lower()
-            if "date" in c_low and not date_col:
-                date_col = col
-            elif any(k in c_low for k in ["amount", "value", "sum", "rand"]) and not amount_col:
-                amount_col = col
-            elif any(k in c_low for k in ["type", "debit/credit", "d/c", "cr/dr"]) and not type_col:
-                type_col = col
-            elif any(k in c_low for k in ["detail", "desc", "narrative", "statement", "transaction"]):
-                details_col = col
-
-        if not date_col and len(df.columns) > 0: date_col = df.columns[0]
-        if not details_col and len(df.columns) > 1: details_col = df.columns[1]
-        if not amount_col and len(df.columns) > 2: amount_col = df.columns[2]
-
-        df = df.rename(columns={
-            date_col: "Date",
-            details_col: "Details",
-            amount_col: "Amount"
-        })
-
-        if type_col:
-            df = df.rename(columns={type_col: "Debit/Credit"})
-            df["Debit/Credit"] = df["Debit/Credit"].astype(str).str.title()
-        else:
-            df["Amount_Clean"] = pd.to_numeric(
-                df["Amount"].astype(str).str.replace("R", "", regex=False).str.replace(",", "", regex=False).str.strip(),
-                errors="coerce"
-            )
-            df["Debit/Credit"] = df["Amount_Clean"].apply(lambda x: "Debit" if (pd.notnull(x) and x < 0) else "Credit")
-
-        df["Amount"] = pd.to_numeric(
-            df["Amount"].astype(str).str.replace("R", "", regex=False).str.replace(",", "", regex=False).str.strip(),
-            errors="coerce"
-        )
-        df["Amount"] = df["Amount"].abs()
-
-        df["Date"] = pd.to_datetime(df["Date"], format="mixed", errors="coerce")
-        df = df.dropna(subset=["Date", "Amount"])
-        df["Category"] = "Other"
-
-        return df
-
-    except Exception as e:
-        st.error(f"Error processing CSV file: {e}")
-        return None
-
 
 def main():
     st.title("Finance Dashboard")
@@ -103,10 +19,10 @@ def main():
 
     extension = uploaded_file.name.split(".")[-1].lower()
 
-    if extension == "csv":
-        df = load_transactions(uploaded_file)
-    elif extension in ["pdf", "png", "jpg", "jpeg"]:
-        df = extract_transactions(uploaded_file)
+    # Pass ALL supported formats through Gemini for auto-extraction and auto-categorization
+    if extension in ["csv", "pdf", "png", "jpg", "jpeg"]:
+        with st.spinner("Analyzing statement and categorizing transactions with Gemini AI..."):
+            df = extract_transactions(uploaded_file)
     else:
         st.error("Unsupported file type.")
         return
