@@ -30,101 +30,45 @@ else:
 
 client = genai.Client(api_key=api_key)
 
-
 PROMPT = """
 You are an expert financial analyst.
-
-The uploaded document is a bank statement from any bank.
-
+The uploaded document is a bank statement.
 Extract EVERY transaction.
 
 For every transaction determine:
+- Date: Format as YYYY-MM-DD. If year is not printed on statement, assume current year or extract from header.
+- Details: Description / Merchant name / Transaction info
+- Amount: Positive numerical value
+- Balance: Balance after transaction (if available)
+- Debit_Credit: 'Debit' (for expenses/withdrawals/fees) or 'Credit' (for deposits/income/transfers in)
+- Category: Mandatory field. YOU MUST CLASSIFY EVERY SINGLE TRANSACTION.
 
-- Date
-- Description
-- Amount
-- Balance (if available)
-- Debit or Credit
-- Spending Category
+Choose ONE category from this exact list:
+Groceries, Transport, Fuel, Restaurants, Takeaways, Coffee, Shopping, Entertainment, 
+Subscriptions, Salary, Interest, Transfer, ATM Withdrawal, Cash Deposit, Utilities, 
+Rent, Insurance, Medical, Education, Travel, Investments, Savings, Bank Charges, 
+Mobile & Internet, Government, Taxes, Loan Payment, Other
 
-Choose ONE category only.
+Rule Examples:
+- Shein, POS Purchase -> Shopping
+- Shoprite, Pick n Pay, Checkers -> Groceries
+- Int Pymt Fee, Eft Charge, Service Fees, Activity Based Pmnt -> Bank Charges
+- FNB App Payment -> Transfer
 
-Use categories such as:
-
-Groceries
-Transport
-Fuel
-Restaurants
-Takeaways
-Coffee
-Shopping
-Entertainment
-Subscriptions
-Salary
-Interest
-Transfer
-ATM Withdrawal
-Cash Deposit
-Utilities
-Rent
-Insurance
-Medical
-Education
-Travel
-Investments
-Savings
-Bank Charges
-Mobile & Internet
-Government
-Taxes
-Loan Payment
-Other
-
-Examples:
-
-Checkers → Groceries
-Shoprite → Groceries
-Pick n Pay → Groceries
-Woolworths Food → Groceries
-
-Uber → Transport
-Bolt → Transport
-Engen → Fuel
-Shell → Fuel
-
-Netflix → Subscriptions
-Spotify → Subscriptions
-YouTube Premium → Subscriptions
-
-McDonald's → Restaurants
-KFC → Restaurants
-Nando's → Restaurants
-
-Clicks Pharmacy → Medical
-Dis-Chem → Medical
-
-Capitec Fee → Bank Charges
-Monthly Account Fee → Bank Charges
-
-If unsure, choose the closest category.
-
-Return ONLY valid JSON.
+Return ONLY valid JSON matching the schema. Do not leave Category empty.
 """
 
 def extract_transactions(uploaded_file):
     max_retries = 3
-    df = None
 
     for attempt in range(max_retries):
         try:
-            # 1. Prepare and Upload File
             uploaded_file.seek(0)
             gemini_file = client.files.upload(
                 file=uploaded_file,
                 config=types.UploadFileConfig(mime_type=uploaded_file.type)
             )
 
-            # 2. Call Gemini API
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=[PROMPT, gemini_file],
@@ -135,53 +79,47 @@ def extract_transactions(uploaded_file):
             )
 
             if response.parsed is None:
-                st.error("Failed to parse document response.")
+                st.error("Failed to extract data from document.")
                 return None
 
             data = response.parsed
             rows = []
 
-            # 3. Build DataFrame Rows (Explicitly including Category)
             for t in data.transactions:
-                rows.append(
-                    {
-                        "Date": t.Date,
-                        "Details": t.Details,
-                        "Amount": abs(t.Amount),
-                        "Balance": t.Balance,
-                        "Debit/Credit": t.Debit_Credit.title().strip(), # Standardize e.g. 'Debit'/'Credit'
-                        "Category": t.Category if t.Category else "Uncategorized",
-                    }
-                )
+                rows.append({
+                    "Date": t.Date,
+                    "Details": t.Details,
+                    "Amount": abs(t.Amount),
+                    "Balance": t.Balance,
+                    "Debit/Credit": t.Debit_Credit.title().strip(),
+                    "Category": t.Category if t.Category and t.Category.strip() else "Other",
+                })
 
             df = pd.DataFrame(rows)
 
-            # 4. Clean Data Types safely
+            # Fix Numeric Conversion
             df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce")
             df["Balance"] = pd.to_numeric(df["Balance"], errors="coerce")
+
+            # Fix Date Parsing (handles year 0001 bugs)
             df["Date"] = pd.to_datetime(df["Date"], format="mixed", errors="coerce")
+            current_year = pd.Timestamp.now().year
+            df["Date"] = df["Date"].apply(
+                lambda d: d.replace(year=current_year) if pd.notnull(d) and d.year < 2000 else d
+            )
 
-            # Drop unusable rows
             df = df.dropna(subset=["Date", "Amount"])
-
-            # Break out of loop on success
-            break
+            return df
 
         except ServerError:
             if attempt < max_retries - 1:
-                time.sleep(2 * (attempt + 1))  # Exponential backoff (2s, 4s)
+                time.sleep(2 * (attempt + 1))
                 continue
             else:
-                st.error("Google AI service is currently busy (503 High Demand). Please wait a moment and try uploading again.")
+                st.error("Google AI service is currently busy. Please retry in a moment.")
                 return None
         except Exception as e:
             st.error(f"Error parsing document: {str(e)}")
             return None
-
-    # Ensure Category column is guaranteed to exist
-    if df is not None and not df.empty:
-        if "Category" not in df.columns:
-            df["Category"] = "Uncategorized"
-        return df
 
     return None
