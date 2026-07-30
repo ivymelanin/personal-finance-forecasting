@@ -5,6 +5,7 @@ import streamlit as st
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 
 load_dotenv()
 
@@ -72,11 +73,15 @@ def extract_transactions(uploaded_file):
                 "data": uploaded_file.read(),
             },
         ],
-        config={
-            "response_mime_type": "application/json",
-            "response_schema": Transactions,
-        },
+        config=types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=Transactions,
+        )
     )
+
+    if response.parsed is None:
+        st.error(response.text)
+        return None
 
     data = response.parsed
 
@@ -93,7 +98,7 @@ def extract_transactions(uploaded_file):
                 "Debit/Credit": t.Debit_Credit,
             }
         )
-
+    df = pd.DataFrame(rows)
     df["Amount"] = pd.to_numeric(df["Amount"], errors="coerce")
 
     df["Balance"] = pd.to_numeric(df["Balance"], errors="coerce")
@@ -102,4 +107,4 @@ def extract_transactions(uploaded_file):
 
     df = df.dropna(subset=["Date", "Amount"])
 
-    return pd.DataFrame(rows)
+    return df
